@@ -4,8 +4,8 @@
 
 -export([encode/2, decode/2, supports/1]).
 
--include("pgsql_binary.hrl").
-
+-define(int32, 1/big-signed-unit:32).
+-define(float64, 1/big-float-unit:64).
 -define(datetime, (get(datetime_mod))).
 
 encode(_Any, null)                          -> <<-1:?int32>>;
@@ -31,16 +31,10 @@ encode(boolarray, L) when is_list(L)        -> encode_array(bool, L);
 encode(int2array, L) when is_list(L)        -> encode_array(int2, L);
 encode(int4array, L) when is_list(L)        -> encode_array(int4, L);
 encode(int8array, L) when is_list(L)        -> encode_array(int8, L);
-encode(float4array, L) when is_list(L)      -> encode_array(float4, L);
-encode(float8array, L) when is_list(L)      -> encode_array(float8, L);
 encode(chararray, L) when is_list(L)        -> encode_array(bpchar, L);
 encode(textarray, L) when is_list(L)        -> encode_array(text, L);
-encode(datearray, L) when is_list(L)        -> encode_array(date, L);
-encode(timearray, L) when is_list(L)        -> encode_array(time, L);
-encode(timetzarray, L) when is_list(L)      -> encode_array(timetz, L);
-encode(timestamparray, L) when is_list(L)   -> encode_array(timestamp, L);
-encode(timestamptzarray, L) when is_list(L) -> encode_array(timestamptz, L);
-encode(intervalarray, L) when is_list(L)    -> encode_array(interval, L);
+encode(point, {X, Y})                       -> <<16:?int32, X:?float64, Y:?float64>>;
+encode(box, {{X1, Y1}, {X2, Y2}})           -> <<32:?int32, X1:?float64, Y1:?float64, X2:?float64, Y2:?float64>>;
 encode(Type, L) when is_list(L)             -> encode(Type, list_to_binary(L));
 encode(_Type, _Value)                       -> {error, unsupported}.
 
@@ -63,22 +57,16 @@ decode(boolarray, B)                        -> decode_array(B);
 decode(int2array, B)                        -> decode_array(B);
 decode(int4array, B)                        -> decode_array(B);
 decode(int8array, B)                        -> decode_array(B);
-decode(float4array, B)                      -> decode_array(B);
-decode(float8array, B)                      -> decode_array(B);
 decode(chararray, B)                        -> decode_array(B);
 decode(textarray, B)                        -> decode_array(B);
-decode(datearray, B)                        -> decode_array(B);
-decode(timearray, B)                        -> decode_array(B);
-decode(timetzarray, B)                      -> decode_array(B);
-decode(timestamparray, B)                   -> decode_array(B);
-decode(timestamptzarray, B)                 -> decode_array(B);
-decode(intervalarray, B)                    -> decode_array(B);
+decode(point, <<X:?float64, Y:?float64>>)   -> {X, Y};
+decode(box, <<X1:?float64, Y1:?float64, X2:?float64, Y2:?float64>>) -> {{X1, Y1}, {X2, Y2}};
 decode(_Other, Bin)                         -> Bin.
 
 encode_array(Type, A) ->
     {Data, {NDims, Lengths}} = encode_array(Type, A, 0, []),
     Oid  = pgsql_types:type2oid(Type),
-    Lens = [<<N:?int32, 1:?int32>> || N <- lists:reverse(Lengths)],
+    Lens = [<<N:?int32, 0:?int32>> || N <- lists:reverse(Lengths)],
     Hdr  = <<NDims:?int32, 0:?int32, Oid:?int32>>,
     Bin  = iolist_to_binary([Hdr, Lens, Data]),
     <<(byte_size(Bin)):?int32, Bin/binary>>.
@@ -147,14 +135,8 @@ supports(boolarray)   -> true;
 supports(int2array)   -> true;
 supports(int4array)   -> true;
 supports(int8array)   -> true;
-supports(float4array) -> true;
-supports(float8array) -> true;
 supports(chararray)   -> true;
 supports(textarray)   -> true;
-supports(datearray)   -> true;
-supports(timearray)   -> true;
-supports(timetzarray) -> true;
-supports(timestamparray)     -> true;
-supports(timestamptzarray)   -> true;
-supports(intervalarray)      -> true;
+supports(point)       -> true;
+supports(box)         -> true;
 supports(_Type)       -> false.
