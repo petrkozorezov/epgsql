@@ -58,7 +58,7 @@ equery(C, Sql) ->
 
 %% TODO add fast_equery command that doesn't need parsed statement
 equery(C, Sql, Parameters) ->
-    Name = ["equery-", atom_to_list(node()), pid_to_list(self())],
+    Name = ["equery-", atom_to_list(node()), erlang:ref_to_list(make_ref())],
     case parse(C, Name, Sql, []) of
         {ok, #statement{types = Types} = S} ->
             Typed_Parameters = lists:zip(Types, Parameters),
